@@ -7,13 +7,22 @@ import ttkbootstrap as tb
 import locale
 
 # try to set locale properly
-for _candidate in ("en_US.utf8", "English_United_States.1252", "C"):
-    try:
-        locale.setlocale(locale.LC_ALL, _candidate)
-        break
-    except locale.Error:
-        continue
-
+# try to set locale properly - with better error handling for EXE
+try:
+    # Try common Windows locales first
+    for _candidate in ("C", "en_US", "English_United_States.1252", "en_US.utf8"):
+        try:
+            locale.setlocale(locale.LC_ALL, _candidate)
+            break
+        except locale.Error:
+            continue
+    else:
+        # If none work, just use the default
+        pass
+except Exception:
+    # If all fails, continue without locale setting
+    pass
+    
 # setup theme
 style = tb.Style(theme="superhero")
 root = style.master
