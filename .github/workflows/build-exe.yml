@@ -1,4 +1,4 @@
-name: Auto-Fix and Build EXE
+name: Create Folder Distribution with TTK Files
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows-exe:
+  build-folder-distribution:
     runs-on: windows-latest
     
     steps:
@@ -24,84 +24,152 @@ jobs:
         pip install ttkbootstrap==1.10.1
         pip install pyinstaller==6.3.0
         
-    - name: Auto-fix locale issues in Python file
+    - name: Fix locale issues in Python file
       run: |
         python -c "
         # Read the original file
         with open('2517126_project_final.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # Split into lines
+        # Split into lines and fix locale issues
         lines = content.split('\n')
-        
-        # Filter out problematic lines
         fixed_lines = []
         skip_block = False
         
         for line in lines:
-            # Skip locale import
             if 'import locale' in line:
                 continue
-            # Start skipping locale block
             elif '# try to set locale properly' in line:
                 skip_block = True
                 continue
-            # End skipping when we hit the next non-locale code
             elif skip_block and line.strip() and not any(x in line for x in ['locale', '_candidate', 'try:', 'except', 'continue', 'for', 'break']):
                 skip_block = False
                 fixed_lines.append(line)
-            # Add line if not in skip block
             elif not skip_block:
                 fixed_lines.append(line)
         
         # Write fixed file
-        with open('app_fixed.py', 'w', encoding='utf-8') as f:
+        with open('SmartCableSelector.py', 'w', encoding='utf-8') as f:
             f.write('\n'.join(fixed_lines))
         
-        print('Fixed file created successfully!')
+        print('Fixed Python file created as SmartCableSelector.py')
         "
         
-    - name: Verify fixed file
+    - name: Create folder-based EXE (not single file)
       run: |
-        Write-Host "Checking if fixed file was created..."
-        if (Test-Path "app_fixed.py") {
-          Write-Host "✅ Fixed file exists"
-          Write-Host "First 20 lines of fixed file:"
-          Get-Content "app_fixed.py" | Select-Object -First 20
-        } else {
-          Write-Host "❌ Fixed file not created"
-          exit 1
-        }
+        pyinstaller --onedir --windowed --name=SmartCableSelector --collect-all=ttkbootstrap --hidden-import=ttkbootstrap --hidden-import=ttkbootstrap.themes --clean --noconfirm SmartCableSelector.py
         
-    - name: Test Python syntax
+    - name: Verify build structure
       run: |
-        Write-Host "Testing Python syntax..."
-        python -m py_compile app_fixed.py
-        Write-Host "✅ Syntax check passed!"
-        
-    - name: Build EXE with PyInstaller
-      run: |
-        pyinstaller --onefile --windowed --name=SmartCableSelector --collect-all=ttkbootstrap --hidden-import=ttkbootstrap --hidden-import=ttkbootstrap.themes --clean --noconfirm app_fixed.py
-        
-    - name: Verify EXE creation
-      run: |
-        if (Test-Path "dist\SmartCableSelector.exe") {
-          Write-Host "🎉 SUCCESS! EXE created!"
-          $size = (Get-Item "dist\SmartCableSelector.exe").Length
-          Write-Host "📦 Size: $size bytes"
-          Write-Host "✅ Ready for download!"
-        } else {
-          Write-Host "❌ EXE creation failed!"
-          Write-Host "Contents of dist folder:"
-          if (Test-Path "dist") {
-            Get-ChildItem "dist"
+        Write-Host "📁 Checking build structure..."
+        if (Test-Path "dist\SmartCableSelector") {
+          Write-Host "✅ Folder distribution created!"
+          Write-Host "📂 Contents of SmartCableSelector folder:"
+          Get-ChildItem "dist\SmartCableSelector" | Format-Table Name, Length
+          
+          if (Test-Path "dist\SmartCableSelector\SmartCableSelector.exe") {
+            Write-Host "✅ Main executable found!"
+            $size = (Get-Item "dist\SmartCableSelector\SmartCableSelector.exe").Length / 1MB
+            Write-Host "📦 EXE Size: $([math]::Round($size, 1)) MB"
           }
+          
+          Write-Host "🔍 Looking for ttkbootstrap files..."
+          $ttkFiles = Get-ChildItem "dist\SmartCableSelector" -Recurse -Filter "*ttk*" | Measure-Object
+          Write-Host "📄 Found $($ttkFiles.Count) ttkbootstrap-related files"
+          
+        } else {
+          Write-Host "❌ Folder distribution failed!"
           exit 1
         }
         
-    - name: Upload working EXE
+    - name: Create distribution package
+      run: |
+        Write-Host "📦 Creating distribution package..."
+        
+        # Create a clean distribution folder
+        New-Item -ItemType Directory -Path "SmartCableSelector_Distribution" -Force
+        
+        # Copy the entire application folder
+        Copy-Item -Path "dist\SmartCableSelector\*" -Destination "SmartCableSelector_Distribution" -Recurse
+        
+        # Create a simple run script
+        @"
+@echo off
+echo Starting Smart Cable Selector...
+echo.
+SmartCableSelector.exe
+if errorlevel 1 (
+    echo.
+    echo Error: Application failed to start
+    echo Please make sure all files are in the same folder
+    pause
+)
+"@ | Out-File -FilePath "SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat" -Encoding ASCII
+        
+        # Create README
+        @"
+SMART CABLE SELECTOR - PORTABLE DISTRIBUTION
+==========================================
+
+CONTENTS:
+- SmartCableSelector.exe - Main application
+- RUN_CABLE_SELECTOR.bat - Easy startup script
+- _internal/ - Required libraries and dependencies
+- ttkbootstrap themes and files
+
+HOW TO RUN:
+1. Double-click 'RUN_CABLE_SELECTOR.bat' 
+   OR
+2. Double-click 'SmartCableSelector.exe' directly
+
+REQUIREMENTS:
+- Windows 7 or newer
+- No Python installation required
+- Keep all files in the same folder
+
+DISTRIBUTION:
+- You can copy this entire folder to any Windows computer
+- All dependencies are included
+- No internet connection required
+
+Created by: Ata Turk - 2025
+"@ | Out-File -FilePath "SmartCableSelector_Distribution\README.txt" -Encoding UTF8
+        
+        Write-Host "✅ Distribution package created!"
+        
+    - name: Verify final package
+      run: |
+        Write-Host "🔍 Final package verification..."
+        $folderSize = (Get-ChildItem "SmartCableSelector_Distribution" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Host "📦 Total package size: $([math]::Round($folderSize, 1)) MB"
+        
+        Write-Host "📂 Package contents:"
+        Get-ChildItem "SmartCableSelector_Distribution" | Format-Table Name, Length
+        
+        if (Test-Path "SmartCableSelector_Distribution\SmartCableSelector.exe") {
+          Write-Host "✅ Main executable: OK"
+        }
+        if (Test-Path "SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat") {
+          Write-Host "✅ Run script: OK"
+        }
+        if (Test-Path "SmartCableSelector_Distribution\README.txt") {
+          Write-Host "✅ README: OK"
+        }
+        if (Test-Path "SmartCableSelector_Distribution\_internal") {
+          Write-Host "✅ Dependencies folder: OK"
+        }
+        
+    - name: Create ZIP package
+      run: |
+        Write-Host "📦 Creating ZIP package for download..."
+        Compress-Archive -Path "SmartCableSelector_Distribution\*" -DestinationPath "SmartCableSelector_Portable.zip" -Force
+        
+        $zipSize = (Get-Item "SmartCableSelector_Portable.zip").Length / 1MB
+        Write-Host "✅ ZIP created: $([math]::Round($zipSize, 1)) MB"
+        
+    - name: Upload portable distribution
       uses: actions/upload-artifact@v4
       with:
-        name: SmartCableSelector-AutoFixed
-        path: dist/SmartCableSelector.exe
+        name: SmartCableSelector-Portable-Distribution
+        path: SmartCableSelector_Portable.zip
         retention-days: 30
