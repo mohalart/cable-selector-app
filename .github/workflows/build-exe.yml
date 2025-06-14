@@ -55,117 +55,102 @@ jobs:
         print('Fixed Python file created as SmartCableSelector.py')
         "
         
-    - name: Create folder-based EXE (not single file)
+    - name: Create folder-based EXE
       run: |
         pyinstaller --onedir --windowed --name=SmartCableSelector --collect-all=ttkbootstrap --hidden-import=ttkbootstrap --hidden-import=ttkbootstrap.themes --clean --noconfirm SmartCableSelector.py
         
     - name: Verify build structure
       run: |
-        Write-Host "📁 Checking build structure..."
+        Write-Host "Checking build structure..."
         if (Test-Path "dist\SmartCableSelector") {
-          Write-Host "✅ Folder distribution created!"
-          Write-Host "📂 Contents of SmartCableSelector folder:"
+          Write-Host "Folder distribution created!"
           Get-ChildItem "dist\SmartCableSelector" | Format-Table Name, Length
           
           if (Test-Path "dist\SmartCableSelector\SmartCableSelector.exe") {
-            Write-Host "✅ Main executable found!"
+            Write-Host "Main executable found!"
             $size = (Get-Item "dist\SmartCableSelector\SmartCableSelector.exe").Length / 1MB
-            Write-Host "📦 EXE Size: $([math]::Round($size, 1)) MB"
+            Write-Host "EXE Size: $([math]::Round($size, 1)) MB"
           }
           
-          Write-Host "🔍 Looking for ttkbootstrap files..."
           $ttkFiles = Get-ChildItem "dist\SmartCableSelector" -Recurse -Filter "*ttk*" | Measure-Object
-          Write-Host "📄 Found $($ttkFiles.Count) ttkbootstrap-related files"
+          Write-Host "Found $($ttkFiles.Count) ttkbootstrap-related files"
           
         } else {
-          Write-Host "❌ Folder distribution failed!"
+          Write-Host "Folder distribution failed!"
           exit 1
         }
         
     - name: Create distribution package
       run: |
-        Write-Host "📦 Creating distribution package..."
-        
-        # Create a clean distribution folder
+        Write-Host "Creating distribution package..."
         New-Item -ItemType Directory -Path "SmartCableSelector_Distribution" -Force
-        
-        # Copy the entire application folder
         Copy-Item -Path "dist\SmartCableSelector\*" -Destination "SmartCableSelector_Distribution" -Recurse
         
-        # Create a simple run script
-        @"
-@echo off
-echo Starting Smart Cable Selector...
-echo.
-SmartCableSelector.exe
-if errorlevel 1 (
-    echo.
-    echo Error: Application failed to start
-    echo Please make sure all files are in the same folder
-    pause
-)
-"@ | Out-File -FilePath "SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat" -Encoding ASCII
+    - name: Create run script
+      run: |
+        echo "@echo off" > SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo "echo Starting Smart Cable Selector..." >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo "echo." >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo "SmartCableSelector.exe" >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo "if errorlevel 1 (" >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo "    echo." >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo "    echo Error: Application failed to start" >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo "    echo Please make sure all files are in the same folder" >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo "    pause" >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
+        echo ")" >> SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat
         
-        # Create README
-        @"
-SMART CABLE SELECTOR - PORTABLE DISTRIBUTION
-==========================================
-
-CONTENTS:
-- SmartCableSelector.exe - Main application
-- RUN_CABLE_SELECTOR.bat - Easy startup script
-- _internal/ - Required libraries and dependencies
-- ttkbootstrap themes and files
-
-HOW TO RUN:
-1. Double-click 'RUN_CABLE_SELECTOR.bat' 
-   OR
-2. Double-click 'SmartCableSelector.exe' directly
-
-REQUIREMENTS:
-- Windows 7 or newer
-- No Python installation required
-- Keep all files in the same folder
-
-DISTRIBUTION:
-- You can copy this entire folder to any Windows computer
-- All dependencies are included
-- No internet connection required
-
-Created by: Ata Turk - 2025
-"@ | Out-File -FilePath "SmartCableSelector_Distribution\README.txt" -Encoding UTF8
-        
-        Write-Host "✅ Distribution package created!"
+    - name: Create README
+      run: |
+        echo "SMART CABLE SELECTOR - PORTABLE DISTRIBUTION" > SmartCableSelector_Distribution\README.txt
+        echo "==========================================" >> SmartCableSelector_Distribution\README.txt
+        echo "" >> SmartCableSelector_Distribution\README.txt
+        echo "CONTENTS:" >> SmartCableSelector_Distribution\README.txt
+        echo "- SmartCableSelector.exe - Main application" >> SmartCableSelector_Distribution\README.txt
+        echo "- RUN_CABLE_SELECTOR.bat - Easy startup script" >> SmartCableSelector_Distribution\README.txt
+        echo "- _internal/ - Required libraries and dependencies" >> SmartCableSelector_Distribution\README.txt
+        echo "- ttkbootstrap themes and files" >> SmartCableSelector_Distribution\README.txt
+        echo "" >> SmartCableSelector_Distribution\README.txt
+        echo "HOW TO RUN:" >> SmartCableSelector_Distribution\README.txt
+        echo "1. Double-click 'RUN_CABLE_SELECTOR.bat'" >> SmartCableSelector_Distribution\README.txt
+        echo "   OR" >> SmartCableSelector_Distribution\README.txt
+        echo "2. Double-click 'SmartCableSelector.exe' directly" >> SmartCableSelector_Distribution\README.txt
+        echo "" >> SmartCableSelector_Distribution\README.txt
+        echo "REQUIREMENTS:" >> SmartCableSelector_Distribution\README.txt
+        echo "- Windows 7 or newer" >> SmartCableSelector_Distribution\README.txt
+        echo "- No Python installation required" >> SmartCableSelector_Distribution\README.txt
+        echo "- Keep all files in the same folder" >> SmartCableSelector_Distribution\README.txt
+        echo "" >> SmartCableSelector_Distribution\README.txt
+        echo "Created by: Ata Turk - 2025" >> SmartCableSelector_Distribution\README.txt
         
     - name: Verify final package
       run: |
-        Write-Host "🔍 Final package verification..."
+        Write-Host "Final package verification..."
         $folderSize = (Get-ChildItem "SmartCableSelector_Distribution" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
-        Write-Host "📦 Total package size: $([math]::Round($folderSize, 1)) MB"
+        Write-Host "Total package size: $([math]::Round($folderSize, 1)) MB"
         
-        Write-Host "📂 Package contents:"
+        Write-Host "Package contents:"
         Get-ChildItem "SmartCableSelector_Distribution" | Format-Table Name, Length
         
         if (Test-Path "SmartCableSelector_Distribution\SmartCableSelector.exe") {
-          Write-Host "✅ Main executable: OK"
+          Write-Host "Main executable: OK"
         }
         if (Test-Path "SmartCableSelector_Distribution\RUN_CABLE_SELECTOR.bat") {
-          Write-Host "✅ Run script: OK"
+          Write-Host "Run script: OK"
         }
         if (Test-Path "SmartCableSelector_Distribution\README.txt") {
-          Write-Host "✅ README: OK"
+          Write-Host "README: OK"
         }
         if (Test-Path "SmartCableSelector_Distribution\_internal") {
-          Write-Host "✅ Dependencies folder: OK"
+          Write-Host "Dependencies folder: OK"
         }
         
     - name: Create ZIP package
       run: |
-        Write-Host "📦 Creating ZIP package for download..."
+        Write-Host "Creating ZIP package for download..."
         Compress-Archive -Path "SmartCableSelector_Distribution\*" -DestinationPath "SmartCableSelector_Portable.zip" -Force
         
         $zipSize = (Get-Item "SmartCableSelector_Portable.zip").Length / 1MB
-        Write-Host "✅ ZIP created: $([math]::Round($zipSize, 1)) MB"
+        Write-Host "ZIP created: $([math]::Round($zipSize, 1)) MB"
         
     - name: Upload portable distribution
       uses: actions/upload-artifact@v4
