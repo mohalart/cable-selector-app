@@ -1,138 +1,19 @@
-name: Build Ultimate Windows EXE
+name: Build Windows EXE - Final
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build-windows-exe:
+  build:
     runs-on: windows-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        
-    - name: Install all dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install ttkbootstrap==1.10.1
-        pip install pyinstaller==6.3.0
-        pip install pillow
-        pip install setuptools
-        pip install wheel
-        
-    - name: Create the fixed Python file
-      run: |
-        # This creates the locale-fixed version of your file
-        python -c "
-        import os
-        # Read original file
-        with open('2517126_project_final.py', 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Remove the problematic locale section
-        lines = content.split('\n')
-        new_lines = []
-        skip_locale = False
-        
-        for line in lines:
-            if 'import locale' in line:
-                continue
-            elif '# try to set locale properly' in line:
-                skip_locale = True
-                continue
-            elif skip_locale and ('except locale.Error:' in line or 'locale.setlocale' in line or 'for _candidate in' in line):
-                continue
-            elif skip_locale and line.strip() == 'continue':
-                skip_locale = False
-                continue
-            else:
-                new_lines.append(line)
-        
-        # Write fixed file
-        with open('2517126_project_final_FIXED.py', 'w', encoding='utf-8') as f:
-            f.write('\n'.join(new_lines))
-        
-        print('Fixed Python file created!')
-        "
-        
-    - name: Verify fixed file exists
-      run: |
-        if (Test-Path "2517126_project_final_FIXED.py") {
-          Write-Host "✅ Fixed Python file created successfully!"
-          $lines = (Get-Content "2517126_project_final_FIXED.py" | Measure-Object -Line).Lines
-          Write-Host "📄 File has $lines lines"
-        } else {
-          Write-Host "❌ Fixed file creation failed!"
-          exit 1
-        }
-        
-    - name: Build comprehensive EXE
-      run: |
-        pyinstaller --onefile --windowed ^
-          --name=SmartCableSelector ^
-          --hidden-import=ttkbootstrap ^
-          --hidden-import=ttkbootstrap.themes ^
-          --hidden-import=ttkbootstrap.themes.standard ^
-          --hidden-import=ttkbootstrap.themes.user ^
-          --hidden-import=ttkbootstrap.style ^
-          --hidden-import=ttkbootstrap.widgets ^
-          --hidden-import=ttkbootstrap.constants ^
-          --hidden-import=ttkbootstrap.localization ^
-          --hidden-import=ttkbootstrap.utility ^
-          --hidden-import=PIL ^
-          --hidden-import=PIL.Image ^
-          --hidden-import=PIL.ImageTk ^
-          --collect-all=ttkbootstrap ^
-          --copy-metadata=ttkbootstrap ^
-          --copy-metadata=pillow ^
-          --clean --noconfirm ^
-          2517126_project_final_FIXED.py
-      shell: cmd
-      
-    - name: Test EXE creation
-      run: |
-        if (Test-Path "dist/SmartCableSelector.exe") {
-          Write-Host "🎉 SUCCESS! EXE created successfully!"
-          $size = (Get-Item "dist/SmartCableSelector.exe").Length / 1MB
-          Write-Host "📦 Size: $([math]::Round($size, 1)) MB"
-          
-          # Get detailed file info
-          $file = Get-Item "dist/SmartCableSelector.exe"
-          Write-Host "📅 Created: $($file.CreationTime)"
-          Write-Host "📏 Exact size: $($file.Length) bytes"
-          Write-Host "✅ Ready for download!"
-        } else {
-          Write-Host "❌ EXE creation failed!"
-          Write-Host "Contents of dist folder:"
-          if (Test-Path "dist") {
-            Get-ChildItem dist
-          } else {
-            Write-Host "dist folder doesn't exist"
-          }
-          exit 1
-        }
-        
-    - name: Upload working EXE
-      uses: actions/upload-artifact@v4
+    - run: pip install ttkbootstrap pyinstaller
+    - run: pyinstaller --onefile --windowed --collect-all=ttkbootstrap --name=SmartCableSelector 2517126_project_final.py
+    - uses: actions/upload-artifact@v4
       with:
-        name: SmartCableSelector-Windows-WORKING
+        name: SmartCableSelector-Final
         path: dist/SmartCableSelector.exe
-        retention-days: 30
-        
-    - name: Upload build files for debugging
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-debug-files
-        path: |
-          build/
-          *.spec
-          *.log
-        retention-days: 7
