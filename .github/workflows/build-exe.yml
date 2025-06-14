@@ -1,4 +1,4 @@
-name: Build Windows EXE with All Dependencies
+name: Build Ultimate Windows EXE
 
 on:
   push:
@@ -25,79 +25,114 @@ jobs:
         pip install pyinstaller==6.3.0
         pip install pillow
         pip install setuptools
+        pip install wheel
         
-    - name: Create comprehensive build script
+    - name: Create the fixed Python file
       run: |
-        echo "import os" > build_script.py
-        echo "import sys" >> build_script.py
-        echo "import PyInstaller.__main__" >> build_script.py
-        echo "" >> build_script.py
-        echo "# Get ttkbootstrap location" >> build_script.py
-        echo "import ttkbootstrap" >> build_script.py
-        echo "ttk_path = os.path.dirname(ttkbootstrap.__file__)" >> build_script.py
-        echo "print(f'ttkbootstrap path: {ttk_path}')" >> build_script.py
-        echo "" >> build_script.py
-        echo "PyInstaller.__main__.run([" >> build_script.py
-        echo "    '2517126_project_final.py'," >> build_script.py
-        echo "    '--onefile'," >> build_script.py
-        echo "    '--windowed'," >> build_script.py
-        echo "    '--name=SmartCableSelector'," >> build_script.py
-        echo "    '--hidden-import=ttkbootstrap'," >> build_script.py
-        echo "    '--hidden-import=ttkbootstrap.themes'," >> build_script.py
-        echo "    '--hidden-import=ttkbootstrap.themes.standard'," >> build_script.py
-        echo "    '--hidden-import=ttkbootstrap.themes.user'," >> build_script.py
-        echo "    '--hidden-import=ttkbootstrap.style'," >> build_script.py
-        echo "    '--hidden-import=ttkbootstrap.widgets'," >> build_script.py
-        echo "    '--hidden-import=ttkbootstrap.constants'," >> build_script.py
-        echo "    '--hidden-import=ttkbootstrap.localization'," >> build_script.py
-        echo "    '--hidden-import=PIL'," >> build_script.py
-        echo "    '--hidden-import=PIL.Image'," >> build_script.py
-        echo "    '--hidden-import=PIL.ImageTk'," >> build_script.py
-        echo "    f'--add-data={ttk_path};ttkbootstrap'," >> build_script.py
-        echo "    '--collect-all=ttkbootstrap'," >> build_script.py
-        echo "    '--copy-metadata=ttkbootstrap'," >> build_script.py
-        echo "    '--clean'," >> build_script.py
-        echo "    '--noconfirm'" >> build_script.py
-        echo "])" >> build_script.py
+        # This creates the locale-fixed version of your file
+        python -c "
+        import os
+        # Read original file
+        with open('2517126_project_final.py', 'r', encoding='utf-8') as f:
+            content = f.read()
         
-    - name: Show build script
-      run: type build_script.py
+        # Remove the problematic locale section
+        lines = content.split('\n')
+        new_lines = []
+        skip_locale = False
         
-    - name: Build EXE with comprehensive dependencies
-      run: python build_script.py
-      
-    - name: List dist contents
-      run: dir dist
-      
-    - name: Test if EXE was created
+        for line in lines:
+            if 'import locale' in line:
+                continue
+            elif '# try to set locale properly' in line:
+                skip_locale = True
+                continue
+            elif skip_locale and ('except locale.Error:' in line or 'locale.setlocale' in line or 'for _candidate in' in line):
+                continue
+            elif skip_locale and line.strip() == 'continue':
+                skip_locale = False
+                continue
+            else:
+                new_lines.append(line)
+        
+        # Write fixed file
+        with open('2517126_project_final_FIXED.py', 'w', encoding='utf-8') as f:
+            f.write('\n'.join(new_lines))
+        
+        print('Fixed Python file created!')
+        "
+        
+    - name: Verify fixed file exists
       run: |
-        if (Test-Path "dist/SmartCableSelector.exe") {
-          Write-Host "✅ EXE created successfully!"
-          $size = (Get-Item "dist/SmartCableSelector.exe").Length / 1MB
-          Write-Host "📦 Size: $([math]::Round($size, 1)) MB"
-          
-          # Try to get file info
-          $file = Get-Item "dist/SmartCableSelector.exe"
-          Write-Host "📅 Created: $($file.CreationTime)"
-          Write-Host "📏 Exact size: $($file.Length) bytes"
+        if (Test-Path "2517126_project_final_FIXED.py") {
+          Write-Host "✅ Fixed Python file created successfully!"
+          $lines = (Get-Content "2517126_project_final_FIXED.py" | Measure-Object -Line).Lines
+          Write-Host "📄 File has $lines lines"
         } else {
-          Write-Host "❌ EXE creation failed!"
-          Write-Host "Contents of dist folder:"
-          Get-ChildItem dist -ErrorAction SilentlyContinue
+          Write-Host "❌ Fixed file creation failed!"
           exit 1
         }
         
-    - name: Upload EXE as artifact
+    - name: Build comprehensive EXE
+      run: |
+        pyinstaller --onefile --windowed ^
+          --name=SmartCableSelector ^
+          --hidden-import=ttkbootstrap ^
+          --hidden-import=ttkbootstrap.themes ^
+          --hidden-import=ttkbootstrap.themes.standard ^
+          --hidden-import=ttkbootstrap.themes.user ^
+          --hidden-import=ttkbootstrap.style ^
+          --hidden-import=ttkbootstrap.widgets ^
+          --hidden-import=ttkbootstrap.constants ^
+          --hidden-import=ttkbootstrap.localization ^
+          --hidden-import=ttkbootstrap.utility ^
+          --hidden-import=PIL ^
+          --hidden-import=PIL.Image ^
+          --hidden-import=PIL.ImageTk ^
+          --collect-all=ttkbootstrap ^
+          --copy-metadata=ttkbootstrap ^
+          --copy-metadata=pillow ^
+          --clean --noconfirm ^
+          2517126_project_final_FIXED.py
+      shell: cmd
+      
+    - name: Test EXE creation
+      run: |
+        if (Test-Path "dist/SmartCableSelector.exe") {
+          Write-Host "🎉 SUCCESS! EXE created successfully!"
+          $size = (Get-Item "dist/SmartCableSelector.exe").Length / 1MB
+          Write-Host "📦 Size: $([math]::Round($size, 1)) MB"
+          
+          # Get detailed file info
+          $file = Get-Item "dist/SmartCableSelector.exe"
+          Write-Host "📅 Created: $($file.CreationTime)"
+          Write-Host "📏 Exact size: $($file.Length) bytes"
+          Write-Host "✅ Ready for download!"
+        } else {
+          Write-Host "❌ EXE creation failed!"
+          Write-Host "Contents of dist folder:"
+          if (Test-Path "dist") {
+            Get-ChildItem dist
+          } else {
+            Write-Host "dist folder doesn't exist"
+          }
+          exit 1
+        }
+        
+    - name: Upload working EXE
       uses: actions/upload-artifact@v4
       with:
-        name: SmartCableSelector-Windows-Complete
+        name: SmartCableSelector-Windows-WORKING
         path: dist/SmartCableSelector.exe
+        retention-days: 30
         
-    - name: Upload build logs (if build fails)
+    - name: Upload build files for debugging
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: build-logs
+        name: build-debug-files
         path: |
           build/
+          *.spec
           *.log
+        retention-days: 7
