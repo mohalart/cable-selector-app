@@ -63,21 +63,21 @@ jobs:
         
     - name: Verify fixed file
       run: |
-        echo "Checking if fixed file was created..."
-        if exist app_fixed.py (
-            echo "✅ Fixed file exists"
-            echo "First 20 lines of fixed file:"
-            powershell -command "Get-Content app_fixed.py | Select-Object -First 20"
-        ) else (
-            echo "❌ Fixed file not created"
-            exit 1
-        )
+        Write-Host "Checking if fixed file was created..."
+        if (Test-Path "app_fixed.py") {
+          Write-Host "✅ Fixed file exists"
+          Write-Host "First 20 lines of fixed file:"
+          Get-Content "app_fixed.py" | Select-Object -First 20
+        } else {
+          Write-Host "❌ Fixed file not created"
+          exit 1
+        }
         
     - name: Test Python syntax
       run: |
-        echo "Testing Python syntax..."
+        Write-Host "Testing Python syntax..."
         python -m py_compile app_fixed.py
-        echo "✅ Syntax check passed!"
+        Write-Host "✅ Syntax check passed!"
         
     - name: Build EXE with PyInstaller
       run: |
@@ -85,16 +85,19 @@ jobs:
         
     - name: Verify EXE creation
       run: |
-        if exist "dist\SmartCableSelector.exe" (
-            echo "🎉 SUCCESS! EXE created!"
-            for %%A in ("dist\SmartCableSelector.exe") do echo "📦 Size: %%~zA bytes"
-            echo "✅ Ready for download!"
-        ) else (
-            echo "❌ EXE creation failed!"
-            echo "Contents of dist folder:"
-            if exist dist dir dist
-            exit 1
-        )
+        if (Test-Path "dist\SmartCableSelector.exe") {
+          Write-Host "🎉 SUCCESS! EXE created!"
+          $size = (Get-Item "dist\SmartCableSelector.exe").Length
+          Write-Host "📦 Size: $size bytes"
+          Write-Host "✅ Ready for download!"
+        } else {
+          Write-Host "❌ EXE creation failed!"
+          Write-Host "Contents of dist folder:"
+          if (Test-Path "dist") {
+            Get-ChildItem "dist"
+          }
+          exit 1
+        }
         
     - name: Upload working EXE
       uses: actions/upload-artifact@v4
