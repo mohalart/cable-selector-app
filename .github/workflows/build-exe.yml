@@ -113,7 +113,6 @@ jobs:
         $env:LC_ALL = "C"
         $env:LANG = "C"
         
-        # Test if EXE starts without immediate crash
         $process = Start-Process -FilePath "SmartCableSelector.exe" -PassThru -WindowStyle Hidden
         Start-Sleep -Seconds 3
         
@@ -135,87 +134,73 @@ jobs:
         
     - name: Create startup script
       run: |
-        $batContent = @"
-@echo off
-title Smart Cable Selector
-echo ================================================
-echo    Smart Cable Selector - Starting...
-echo ================================================
-echo.
-set LC_ALL=C
-set LANG=C
-set LANGUAGE=en
-SmartCableSelector.exe
-if errorlevel 1 (
-    echo.
-    echo ================================================
-    echo ERROR: Application failed to start
-    echo ================================================
-    echo.
-    pause
-)
-"@
-        $batContent | Out-File -FilePath "SmartCableSelector_Portable\START_CABLE_SELECTOR.bat" -Encoding ASCII
+        echo "@echo off" > SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "title Smart Cable Selector" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "echo ================================================" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "echo    Smart Cable Selector - Starting..." >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "echo ================================================" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "echo." >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "set LC_ALL=C" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "set LANG=C" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "set LANGUAGE=en" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "SmartCableSelector.exe" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "if errorlevel 1 (" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "    echo." >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "    echo ================================================" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "    echo ERROR: Application failed to start" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "    echo ================================================" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "    echo." >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo "    pause" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
+        echo ")" >> SmartCableSelector_Portable\START_CABLE_SELECTOR.bat
         
     - name: Create documentation
       run: |
-        $readmeContent = @"
-SMART CABLE SELECTOR - PORTABLE EDITION
-======================================
-
-VERSION: Locale-Fixed Build
-BUILD DATE: $(Get-Date -Format 'yyyy-MM-dd HH:mm')
-
-QUICK START:
------------
-Double-click: START_CABLE_SELECTOR.bat
-
-ALTERNATIVE:
------------
-Double-click: SmartCableSelector.exe
-
-WHAT'S INCLUDED:
----------------
-- SmartCableSelector.exe (Main application)
-- START_CABLE_SELECTOR.bat (Recommended launcher)
-- _internal\ (All required libraries and themes)
-- README.txt (This file)
-
-FEATURES:
---------
-✓ Electrical cable selection and filtering
-✓ Voltage drop calculations  
-✓ Power loss analysis
-✓ Economic cost analysis (10-year projections)
-✓ Multiple visual themes
-✓ Professional reporting and logging
-✓ Completely portable (no installation required)
-
-SYSTEM REQUIREMENTS:
--------------------
-- Windows 7 or newer
-- No Python installation needed
-- Keep all files in same folder
-- Approximately $([math]::Round((Get-ChildItem "SmartCableSelector_Portable" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB, 0)) MB disk space
-
-USAGE TIPS:
-----------
-- Start with Load Type and System Voltage
-- Green highlighted cables are most economical
-- Press F1 for detailed help within the application
-- Press Enter to calculate losses after selecting cable
-
-TROUBLESHOOTING:
----------------
-- Use START_CABLE_SELECTOR.bat for best compatibility
-- Run as Administrator if permission issues occur
-- Check Windows Defender/antivirus settings if blocked
-- Ensure all files stay in the same folder
-
-CREATED BY: Ata Turk - 2025
-BUILD: Professional Portable Distribution
-"@
-        $readmeContent | Out-File -FilePath "SmartCableSelector_Portable\README.txt" -Encoding UTF8
+        echo "SMART CABLE SELECTOR - PORTABLE EDITION" > SmartCableSelector_Portable\README.txt
+        echo "======================================" >> SmartCableSelector_Portable\README.txt
+        echo "" >> SmartCableSelector_Portable\README.txt
+        echo "VERSION: Locale-Fixed Build" >> SmartCableSelector_Portable\README.txt
+        echo "BUILD DATE: $(Get-Date -Format 'yyyy-MM-dd HH:mm')" >> SmartCableSelector_Portable\README.txt
+        echo "" >> SmartCableSelector_Portable\README.txt
+        echo "QUICK START:" >> SmartCableSelector_Portable\README.txt
+        echo "-----------" >> SmartCableSelector_Portable\README.txt
+        echo "Double-click: START_CABLE_SELECTOR.bat" >> SmartCableSelector_Portable\README.txt
+        echo "" >> SmartCableSelector_Portable\README.txt
+        echo "ALTERNATIVE:" >> SmartCableSelector_Portable\README.txt
+        echo "-----------" >> SmartCableSelector_Portable\README.txt
+        echo "Double-click: SmartCableSelector.exe" >> SmartCableSelector_Portable\README.txt
+        echo "" >> SmartCableSelector_Portable\README.txt
+        echo "WHATS INCLUDED:" >> SmartCableSelector_Portable\README.txt
+        echo "---------------" >> SmartCableSelector_Portable\README.txt
+        echo "- SmartCableSelector.exe (Main application)" >> SmartCableSelector_Portable\README.txt
+        echo "- START_CABLE_SELECTOR.bat (Recommended launcher)" >> SmartCableSelector_Portable\README.txt
+        echo "- _internal\ (All required libraries and themes)" >> SmartCableSelector_Portable\README.txt
+        echo "- README.txt (This file)" >> SmartCableSelector_Portable\README.txt
+        echo "" >> SmartCableSelector_Portable\README.txt
+        echo "FEATURES:" >> SmartCableSelector_Portable\README.txt
+        echo "--------" >> SmartCableSelector_Portable\README.txt
+        echo "* Electrical cable selection and filtering" >> SmartCableSelector_Portable\README.txt
+        echo "* Voltage drop calculations" >> SmartCableSelector_Portable\README.txt
+        echo "* Power loss analysis" >> SmartCableSelector_Portable\README.txt
+        echo "* Economic cost analysis (10-year projections)" >> SmartCableSelector_Portable\README.txt
+        echo "* Multiple visual themes" >> SmartCableSelector_Portable\README.txt
+        echo "* Professional reporting and logging" >> SmartCableSelector_Portable\README.txt
+        echo "* Completely portable (no installation required)" >> SmartCableSelector_Portable\README.txt
+        echo "" >> SmartCableSelector_Portable\README.txt
+        echo "SYSTEM REQUIREMENTS:" >> SmartCableSelector_Portable\README.txt
+        echo "-------------------" >> SmartCableSelector_Portable\README.txt
+        echo "- Windows 7 or newer" >> SmartCableSelector_Portable\README.txt
+        echo "- No Python installation needed" >> SmartCableSelector_Portable\README.txt
+        echo "- Keep all files in same folder" >> SmartCableSelector_Portable\README.txt
+        echo "" >> SmartCableSelector_Portable\README.txt
+        echo "TROUBLESHOOTING:" >> SmartCableSelector_Portable\README.txt
+        echo "---------------" >> SmartCableSelector_Portable\README.txt
+        echo "- Use START_CABLE_SELECTOR.bat for best compatibility" >> SmartCableSelector_Portable\README.txt
+        echo "- Run as Administrator if permission issues occur" >> SmartCableSelector_Portable\README.txt
+        echo "- Check Windows Defender/antivirus settings if blocked" >> SmartCableSelector_Portable\README.txt
+        echo "- Ensure all files stay in the same folder" >> SmartCableSelector_Portable\README.txt
+        echo "" >> SmartCableSelector_Portable\README.txt
+        echo "CREATED BY: Ata Turk - 2025" >> SmartCableSelector_Portable\README.txt
+        echo "BUILD: Professional Portable Distribution" >> SmartCableSelector_Portable\README.txt
         
     - name: Final package verification
       run: |
@@ -229,7 +214,6 @@ BUILD: Professional Portable Distribution
         Write-Host "📄 Total files: $fileCount"
         Write-Host ""
         
-        # Verify essential components
         $essential = @(
           "SmartCableSelector.exe",
           "START_CABLE_SELECTOR.bat", 
