@@ -24,38 +24,34 @@ jobs:
         pip install ttkbootstrap==1.10.1
         pip install pyinstaller==6.3.0
         
-    - name: Fix ONLY ttkbootstrap locale issue
+    - name: Create ttkbootstrap fix script
       run: |
-        python -c "
-        import os
-        import site
+        echo "import os" > fix_ttkbootstrap.py
+        echo "import site" >> fix_ttkbootstrap.py
+        echo "" >> fix_ttkbootstrap.py
+        echo "# Find ttkbootstrap installation" >> fix_ttkbootstrap.py
+        echo "for path in site.getsitepackages():" >> fix_ttkbootstrap.py
+        echo "    dialogs_file = os.path.join(path, 'ttkbootstrap', 'dialogs', 'dialogs.py')" >> fix_ttkbootstrap.py
+        echo "    if os.path.exists(dialogs_file):" >> fix_ttkbootstrap.py
+        echo "        print(f'Found ttkbootstrap at: {dialogs_file}')" >> fix_ttkbootstrap.py
+        echo "        with open(dialogs_file, 'r', encoding='utf-8') as f:" >> fix_ttkbootstrap.py
+        echo "            content = f.read()" >> fix_ttkbootstrap.py
+        echo "        # Replace problematic locale line" >> fix_ttkbootstrap.py
+        echo "        before = 'locale.setlocale(locale.LC_ALL, locale.setlocale(locale.LC_TIME, \"\"))'" >> fix_ttkbootstrap.py
+        echo "        after = '\"C\"  # Fixed for PyInstaller'" >> fix_ttkbootstrap.py
+        echo "        if before in content:" >> fix_ttkbootstrap.py
+        echo "            content = content.replace(before, after)" >> fix_ttkbootstrap.py
+        echo "            with open(dialogs_file, 'w', encoding='utf-8') as f:" >> fix_ttkbootstrap.py
+        echo "                f.write(content)" >> fix_ttkbootstrap.py
+        echo "            print('Fixed ttkbootstrap locale issue!')" >> fix_ttkbootstrap.py
+        echo "        else:" >> fix_ttkbootstrap.py
+        echo "            print('Locale line not found - different version?')" >> fix_ttkbootstrap.py
+        echo "        break" >> fix_ttkbootstrap.py
+        echo "else:" >> fix_ttkbootstrap.py
+        echo "    print('ttkbootstrap dialogs.py not found')" >> fix_ttkbootstrap.py
         
-        # Find and fix ttkbootstrap's locale issue
-        for path in site.getsitepackages():
-            ttk_dialogs = os.path.join(path, 'ttkbootstrap', 'dialogs', 'dialogs.py')
-            if os.path.exists(ttk_dialogs):
-                print(f'Found ttkbootstrap dialogs at: {ttk_dialogs}')
-                
-                with open(ttk_dialogs, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                # Replace the problematic locale line (line 566)
-                old_line = 'locale.setlocale(locale.LC_ALL, locale.setlocale(locale.LC_TIME, \"\"))'
-                new_line = '\"C\"  # PyInstaller fix'
-                
-                if old_line in content:
-                    content = content.replace(old_line, new_line)
-                    
-                    with open(ttk_dialogs, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                    
-                    print('✅ Fixed ttkbootstrap locale issue!')
-                else:
-                    print('⚠️ Locale line not found - might be different version')
-                break
-        else:
-            print('❌ ttkbootstrap dialogs.py not found')
-        "
+    - name: Run ttkbootstrap fix
+      run: python fix_ttkbootstrap.py
         
     - name: Build portable application
       run: |
@@ -70,147 +66,88 @@ jobs:
           Write-Host "✅ Build successful!"
           $size = (Get-Item "dist\SmartCableSelector\SmartCableSelector.exe").Length / 1MB
           Write-Host "📦 EXE Size: $([math]::Round($size, 1)) MB"
-          
-          Write-Host "📂 Package contents:"
-          Get-ChildItem "dist\SmartCableSelector" | Select-Object Name, Length | Format-Table
         } else {
-          Write-Host "❌ Build failed - EXE not found"
-          if (Test-Path "dist") {
-            Write-Host "Contents of dist folder:"
-            Get-ChildItem "dist" -Recurse
-          }
+          Write-Host "❌ Build failed!"
           exit 1
         }
         
     - name: Test application startup
       run: |
-        Write-Host "🧪 Testing application startup..."
+        Write-Host "🧪 Testing application..."
         cd "dist\SmartCableSelector"
-        
-        # Set safe locale environment
         $env:LC_ALL = "C"
         $env:LANG = "C"
         
-        # Start the application in background
         $process = Start-Process -FilePath "SmartCableSelector.exe" -PassThru -WindowStyle Hidden
         Start-Sleep -Seconds 3
         
         if (!$process.HasExited) {
-          Write-Host "✅ Application started successfully!"
+          Write-Host "✅ App started successfully!"
           Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        } elseif ($process.ExitCode -eq 0) {
-          Write-Host "✅ Application ran and closed normally"
         } else {
-          Write-Host "⚠️ Application exited with code: $($process.ExitCode)"
+          Write-Host "⚠️ App exited early (code: $($process.ExitCode))"
         }
-        
         cd ..\..
         
     - name: Create portable distribution
       run: |
-        Write-Host "📦 Creating portable distribution..."
+        New-Item -ItemType Directory -Path "CableSelectorApp" -Force
+        Copy-Item -Path "dist\SmartCableSelector\*" -Destination "CableSelectorApp" -Recurse
         
-        # Create clean distribution folder
-        New-Item -ItemType Directory -Path "SmartCableSelector_Portable" -Force
-        Copy-Item -Path "dist\SmartCableSelector\*" -Destination "SmartCableSelector_Portable" -Recurse
-        
-    - name: Create run script
+    - name: Create launcher
       run: |
-        echo "@echo off" > SmartCableSelector_Portable\START_APP.bat
-        echo "title Smart Cable Selector by Ata Turk" >> SmartCableSelector_Portable\START_APP.bat
-        echo "echo ======================================" >> SmartCableSelector_Portable\START_APP.bat
-        echo "echo   Smart Cable Selector - Loading..." >> SmartCableSelector_Portable\START_APP.bat
-        echo "echo ======================================" >> SmartCableSelector_Portable\START_APP.bat
-        echo "echo." >> SmartCableSelector_Portable\START_APP.bat
-        echo "set LC_ALL=C" >> SmartCableSelector_Portable\START_APP.bat
-        echo "set LANG=C" >> SmartCableSelector_Portable\START_APP.bat
-        echo "SmartCableSelector.exe" >> SmartCableSelector_Portable\START_APP.bat
-        echo "if errorlevel 1 (" >> SmartCableSelector_Portable\START_APP.bat
-        echo "    echo." >> SmartCableSelector_Portable\START_APP.bat
-        echo "    echo Error starting application!" >> SmartCableSelector_Portable\START_APP.bat
-        echo "    echo Try running SmartCableSelector.exe directly" >> SmartCableSelector_Portable\START_APP.bat
-        echo "    pause" >> SmartCableSelector_Portable\START_APP.bat
-        echo ")" >> SmartCableSelector_Portable\START_APP.bat
+        echo "@echo off" > CableSelectorApp\RUN_CABLE_SELECTOR.bat
+        echo "title Smart Cable Selector" >> CableSelectorApp\RUN_CABLE_SELECTOR.bat
+        echo "echo Starting Smart Cable Selector..." >> CableSelectorApp\RUN_CABLE_SELECTOR.bat
+        echo "set LC_ALL=C" >> CableSelectorApp\RUN_CABLE_SELECTOR.bat
+        echo "set LANG=C" >> CableSelectorApp\RUN_CABLE_SELECTOR.bat
+        echo "SmartCableSelector.exe" >> CableSelectorApp\RUN_CABLE_SELECTOR.bat
+        echo "if errorlevel 1 pause" >> CableSelectorApp\RUN_CABLE_SELECTOR.bat
         
-    - name: Create documentation
+    - name: Create README
       run: |
-        echo "SMART CABLE SELECTOR - PORTABLE APPLICATION" > SmartCableSelector_Portable\README.txt
-        echo "===========================================" >> SmartCableSelector_Portable\README.txt
-        echo "" >> SmartCableSelector_Portable\README.txt
-        echo "Created by: Ata Turk - 2025" >> SmartCableSelector_Portable\README.txt
-        echo "Build Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm')" >> SmartCableSelector_Portable\README.txt
-        echo "" >> SmartCableSelector_Portable\README.txt
-        echo "HOW TO RUN:" >> SmartCableSelector_Portable\README.txt
-        echo "----------" >> SmartCableSelector_Portable\README.txt
-        echo "1. Double-click START_APP.bat (recommended)" >> SmartCableSelector_Portable\README.txt
-        echo "2. OR double-click SmartCableSelector.exe directly" >> SmartCableSelector_Portable\README.txt
-        echo "" >> SmartCableSelector_Portable\README.txt
-        echo "FEATURES:" >> SmartCableSelector_Portable\README.txt
-        echo "--------" >> SmartCableSelector_Portable\README.txt
-        echo "• Automatic cable filtering based on load requirements" >> SmartCableSelector_Portable\README.txt
-        echo "• Voltage drop and power loss calculations" >> SmartCableSelector_Portable\README.txt
-        echo "• Economic analysis with 10-year cost projections" >> SmartCableSelector_Portable\README.txt
-        echo "• Multiple visual themes" >> SmartCableSelector_Portable\README.txt
-        echo "• Professional calculation reports" >> SmartCableSelector_Portable\README.txt
-        echo "• Help system (press F1 in application)" >> SmartCableSelector_Portable\README.txt
-        echo "" >> SmartCableSelector_Portable\README.txt
-        echo "REQUIREMENTS:" >> SmartCableSelector_Portable\README.txt
-        echo "------------" >> SmartCableSelector_Portable\README.txt
-        echo "• Windows 7 or newer" >> SmartCableSelector_Portable\README.txt
-        echo "• No Python installation required" >> SmartCableSelector_Portable\README.txt
-        echo "• Keep all files in the same folder" >> SmartCableSelector_Portable\README.txt
-        echo "" >> SmartCableSelector_Portable\README.txt
-        echo "USAGE TIPS:" >> SmartCableSelector_Portable\README.txt
-        echo "----------" >> SmartCableSelector_Portable\README.txt
-        echo "• Start by entering your load requirements" >> SmartCableSelector_Portable\README.txt
-        echo "• The app automatically filters suitable cables" >> SmartCableSelector_Portable\README.txt
-        echo "• Green highlighted cables are most economical" >> SmartCableSelector_Portable\README.txt
-        echo "• Select a cable and press Enter to calculate" >> SmartCableSelector_Portable\README.txt
-        echo "" >> SmartCableSelector_Portable\README.txt
-        echo "This is a completely portable application." >> SmartCableSelector_Portable\README.txt
-        echo "You can copy this folder to any Windows computer." >> SmartCableSelector_Portable\README.txt
+        echo "SMART CABLE SELECTOR - PORTABLE VERSION" > CableSelectorApp\README.txt
+        echo "=======================================" >> CableSelectorApp\README.txt
+        echo "" >> CableSelectorApp\README.txt
+        echo "Created by: Ata Turk - 2025" >> CableSelectorApp\README.txt
+        echo "Build: $(Get-Date -Format 'yyyy-MM-dd')" >> CableSelectorApp\README.txt
+        echo "" >> CableSelectorApp\README.txt
+        echo "HOW TO RUN:" >> CableSelectorApp\README.txt
+        echo "- Double-click RUN_CABLE_SELECTOR.bat" >> CableSelectorApp\README.txt
+        echo "- OR double-click SmartCableSelector.exe" >> CableSelectorApp\README.txt
+        echo "" >> CableSelectorApp\README.txt
+        echo "FEATURES:" >> CableSelectorApp\README.txt
+        echo "- Cable selection and filtering" >> CableSelectorApp\README.txt
+        echo "- Voltage drop calculations" >> CableSelectorApp\README.txt
+        echo "- Power loss analysis" >> CableSelectorApp\README.txt
+        echo "- Economic cost analysis" >> CableSelectorApp\README.txt
+        echo "- Multiple themes" >> CableSelectorApp\README.txt
+        echo "" >> CableSelectorApp\README.txt
+        echo "REQUIREMENTS:" >> CableSelectorApp\README.txt
+        echo "- Windows 7+" >> CableSelectorApp\README.txt
+        echo "- No installation needed" >> CableSelectorApp\README.txt
+        echo "- Keep files together" >> CableSelectorApp\README.txt
         
-    - name: Final package summary
+    - name: Package verification
       run: |
-        Write-Host ""
-        Write-Host "📊 FINAL PACKAGE SUMMARY"
-        Write-Host "========================"
+        Write-Host "📊 Package Summary:"
+        $size = (Get-ChildItem "CableSelectorApp" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Host "Size: $([math]::Round($size, 1)) MB"
         
-        $totalSize = (Get-ChildItem "SmartCableSelector_Portable" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
-        $fileCount = (Get-ChildItem "SmartCableSelector_Portable" -Recurse -File | Measure-Object).Count
+        if (Test-Path "CableSelectorApp\SmartCableSelector.exe") { Write-Host "✅ EXE" }
+        if (Test-Path "CableSelectorApp\RUN_CABLE_SELECTOR.bat") { Write-Host "✅ Launcher" }
+        if (Test-Path "CableSelectorApp\README.txt") { Write-Host "✅ README" }
+        if (Test-Path "CableSelectorApp\_internal") { Write-Host "✅ Dependencies" }
         
-        Write-Host "📦 Total size: $([math]::Round($totalSize, 1)) MB"
-        Write-Host "📄 Files: $fileCount"
-        Write-Host ""
-        Write-Host "📂 Main contents:"
-        
-        $items = @(
-          "SmartCableSelector.exe",
-          "START_APP.bat",
-          "README.txt",
-          "_internal"
-        )
-        
-        foreach ($item in $items) {
-          if (Test-Path "SmartCableSelector_Portable\$item") {
-            Write-Host "✅ $item"
-          } else {
-            Write-Host "❌ $item - MISSING"
-          }
-        }
-        
-        Write-Host ""
-        Write-Host "🎉 Portable application ready!"
-        
-    - name: Create ZIP package
+    - name: Create ZIP
       run: |
-        Compress-Archive -Path "SmartCableSelector_Portable\*" -DestinationPath "SmartCableSelector_Ready.zip" -Force
-        $zipSize = (Get-Item "SmartCableSelector_Ready.zip").Length / 1MB
-        Write-Host "📦 ZIP package created: $([math]::Round($zipSize, 1)) MB"
+        Compress-Archive -Path "CableSelectorApp\*" -DestinationPath "SmartCableSelector.zip" -Force
+        $zipSize = (Get-Item "SmartCableSelector.zip").Length / 1MB
+        Write-Host "📦 ZIP ready: $([math]::Round($zipSize, 1)) MB"
         
-    - name: Upload final package
+    - name: Upload package
       uses: actions/upload-artifact@v4
       with:
-        name: SmartCableSelector-Ready-To-Use
-        path: SmartCableSelector_Ready.zip
+        name: SmartCableSelector-Working
+        path: SmartCableSelector.zip
         retention-days: 30
